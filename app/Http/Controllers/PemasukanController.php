@@ -85,8 +85,9 @@ class PemasukanController extends Controller
                     'pemasukan_id' => $pemasukan->id, // Hubungkan ke pemasukan ini
                     'category_id' => $pemasukan['category_id'], // Hubungkan ke pemasukan ini
                     'jenis' => 'PIUTANG',
+                    'status' => 'TAGIHAN_OPEN',
                     'nominal' => $validated['nominal'],
-                    'tanggal_jatuh_tempo' => now()->addDays(30), // Default 30 hari
+                    'tanggal' => now(),
                     'keterangan' => $validated['keterangan']
                 ]);
             }
