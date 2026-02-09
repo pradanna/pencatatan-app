@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Akun;
+use App\Models\Contact;
+use App\Models\HutangPiutang;
 use App\Models\Pemasukan;
 use App\Models\Stock;
 use App\Models\StockMutation;
@@ -11,114 +14,149 @@ use Inertia\Inertia;
 
 class StockController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     */
     public function index()
     {
-        $stocks = Stock::orderBy('nama_barang', 'asc')->get();
-
+        $stocks = Stock::orderBy('nama_barang')->get();
         $totalAset = $stocks->sum(function ($stock) {
             return $stock->qty * $stock->harga_modal_avg;
         });
-        $histories = StockMutation::with('stock')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
 
         return Inertia::render('Stock/Index', [
             'stocks' => $stocks,
             'totalAset' => $totalAset,
-            'akuns' => \App\Models\Akun::orderBy('nama', 'asc')->get(),
-            'histories' => $histories
+            'akuns' => Akun::all(),
+            'histories' => StockMutation::with('stock')->latest()->take(15)->get(),
+            // Kirim data contact yang berjenis CUSTOMER atau BOTH untuk pilihan di modal
+            'contacts' => Contact::whereIn('jenis', ['CUSTOMER', 'BOTH'])->orderBy('nama')->get(),
         ]);
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nama_barang' => 'required|string|max:255',
-            'satuan' => 'required|string|max:50', // Pcs, Unit, Kg
             'qty' => 'required|numeric|min:0',
-            'harga_modal_avg' => 'required|numeric|min:0', // Harga Beli
-            'harga_jual_default' => 'required|numeric|min:0', // Harga Jual
+            'satuan' => 'required|string|max:50',
+            'harga_modal_avg' => 'required|numeric|min:0',
+            'harga_jual_default' => 'required|numeric|min:0',
         ]);
 
         Stock::create($validated);
 
-        return redirect()->back()->with('message', 'Produk berhasil ditambahkan!');
+        return redirect()->route('stocks.index')->with('message', 'Produk berhasil ditambahkan.');
     }
 
+
+    /**
+     * Update the specified resource in storage.
+     */
     public function update(Request $request, Stock $stock)
     {
         $validated = $request->validate([
             'nama_barang' => 'required|string|max:255',
+            'qty' => 'required|numeric|min:0',
             'satuan' => 'required|string|max:50',
-            'qty' => 'required|numeric|min:0', // Bisa edit stok manual (Stock Opname)
             'harga_modal_avg' => 'required|numeric|min:0',
             'harga_jual_default' => 'required|numeric|min:0',
         ]);
 
         $stock->update($validated);
 
-        return redirect()->back()->with('message', 'Data produk diperbarui!');
+        return redirect()->route('stocks.index')->with('message', 'Produk berhasil diperbarui.');
     }
 
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Stock $stock)
+    {
+        if ($stock->mutations()->exists()) {
+            return redirect()->back()->with('error', 'Produk tidak bisa dihapus karena memiliki riwayat transaksi.');
+        }
+        $stock->delete();
+        return redirect()->route('stocks.index')->with('message', 'Produk berhasil dihapus.');
+    }
+
+    /**
+     * Proses stok masuk.
+     */
     public function stockIn(Request $request, Stock $stock)
     {
-        $request->validate(['qty_masuk' => 'required|numeric|min:1']);
+        $validated = $request->validate([
+            'qty_masuk' => 'required|numeric|min:1',
+        ]);
 
-        DB::transaction(function () use ($request, $stock) {
-            $stock->increment('qty', $request->qty_masuk);
-
-            // Catat History
+        DB::transaction(function () use ($stock, $validated) {
+            $stock->increment('qty', $validated['qty_masuk']);
             StockMutation::create([
                 'stock_id' => $stock->id,
                 'type' => 'IN',
-                'qty' => $request->qty_masuk,
-                'keterangan' => 'Stok Masuk / Kulakan'
+                'qty' => $validated['qty_masuk'],
+                'keterangan' => 'Penambahan stok manual.',
             ]);
         });
 
-        return redirect()->back();
+        return redirect()->route('stocks.index')->with('message', 'Stok berhasil ditambahkan.');
     }
 
+    /**
+     * Proses stok keluar dan catat sebagai penjualan (Lunas/Piutang).
+     */
     public function stockOut(Request $request, Stock $stock)
     {
-        $request->validate([
+        $validated = $request->validate([
             'qty_keluar' => 'required|numeric|min:1|max:' . $stock->qty,
-            'akun_id' => 'required|exists:akuns,id', // Untuk mencatat uang masuk ke rekening mana
+            'contact_id' => 'required|exists:contacts,id',
+            'status_pembayaran' => 'required|in:LUNAS,PIUTANG',
+            'akun_id' => 'required_if:status_pembayaran,LUNAS|nullable|exists:akuns,id',
+            'jatuh_tempo' => 'nullable|date',
         ]);
 
-        DB::transaction(function () use ($request, $stock) {
-            $totalHarga = $request->qty_keluar * $stock->harga_jual_default;
+        $totalPenjualan = $validated['qty_keluar'] * $stock->harga_jual_default;
+        $keterangan = "Penjualan {$stock->nama_barang} x {$validated['qty_keluar']}";
 
-            // 1. Kurangi Stok
-            $stock->decrement('qty', $request->qty_keluar);
+        DB::transaction(function () use ($stock, $validated, $totalPenjualan, $keterangan) {
+            // 1. Kurangi stok di tabel stocks
+            $stock->decrement('qty', $validated['qty_keluar']);
 
-            // 2. Catat ke Pemasukan
-            Pemasukan::create([
-                'akun_id' => $request->akun_id,
-                'kategori' => 'Penjualan ' . $stock->nama_barang,
-                'nominal' => $totalHarga,
-                'tanggal' => now(),
-                'keterangan' => "Penjualan {$request->qty_keluar} {$stock->satuan} {$stock->nama_barang}",
-            ]);
-
+            // 2. Catat mutasi stok
             StockMutation::create([
                 'stock_id' => $stock->id,
                 'type' => 'OUT',
-                'qty' => $request->qty_keluar,
-                'keterangan' => 'Penjualan'
+                'qty' => $validated['qty_keluar'],
+                'keterangan' => $keterangan . ' kepada ' . Contact::find($validated['contact_id'])->nama,
             ]);
-            // 3. Tambahkan saldo ke Akun/Kas yang dipilih
-            $akun = \App\Models\Akun::find($request->akun_id);
-            $akun->increment('saldo', $totalHarga);
+
+            // 3. Logika LUNAS atau PIUTANG
+            if ($validated['status_pembayaran'] === 'LUNAS') {
+                Pemasukan::create([
+                    'akun_id' => $validated['akun_id'],
+                    'contact_id' => $validated['contact_id'],
+                    'nominal' => $totalPenjualan,
+                    'tanggal' => now()->toDateString(),
+                    'keterangan' => $keterangan,
+                    'status' => 'LUNAS',
+                ]);
+                Akun::find($validated['akun_id'])->increment('saldo', $totalPenjualan);
+            } else { // PIUTANG
+                HutangPiutang::create([
+                    'contact_id' => $validated['contact_id'],
+                    'jenis' => 'PIUTANG',
+                    'status' => 'TAGIHAN_OPEN',
+                    'nominal' => $totalPenjualan,
+                    'keterangan' => $keterangan,
+                    'tanggal' => now()->toDateString(),
+                    'jatuh_tempo' => $validated['jatuh_tempo'] ?? null,
+                ]);
+            }
         });
 
-        return redirect()->back()->with('message', 'Stok berhasil dikeluarkan dan dicatat sebagai pemasukan.');
-    }
-
-    public function destroy(Stock $stock)
-    {
-        $stock->delete();
-        return redirect()->back()->with('message', 'Produk dihapus.');
+        return redirect()->route('stocks.index')->with('message', 'Stok keluar berhasil dicatat sebagai penjualan.');
     }
 }

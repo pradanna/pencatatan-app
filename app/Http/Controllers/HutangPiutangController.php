@@ -16,15 +16,54 @@ class HutangPiutangController extends Controller
     /**
      * Menampilkan daftar hutang dan piutang
      */
-    public function index()
+    public function index(Request $request)
     {
+        $jenis = $request->input('jenis', 'PIUTANG');
+        $contactId = $request->input('contact_id');
+
+        // Hapus 'pemasukan' dan 'pengeluaran' dari with() karena relasi tidak didefinisikan di model
+        $query = HutangPiutang::with(['contact'])
+            ->where('jenis', $jenis);
+
+        if ($contactId) {
+            $query->where('contact_id', $contactId);
+        }
+
+        // Filter contacts untuk dropdown filter (sesuai tab)
+        $contactTypes = $jenis === 'PIUTANG' ? ['CUSTOMER', 'BOTH'] : ['SUPPLIER', 'BOTH'];
+        $contacts = Contact::whereIn('jenis', $contactTypes)->orderBy('nama')->get();
+
+        // Eksekusi query
+        $hutangPiutangs = $query->orderBy('status', 'asc')
+            ->orderBy('jatuh_tempo', 'asc')
+            ->get();
+
+        // Cek manual relasi ke tabel Pemasukan dan Pengeluaran
+        // Ambil semua ID dari hasil query
+        $hpIds = $hutangPiutangs->pluck('id');
+
+        // Cari ID mana saja yang ada di tabel Pemasukan
+        $linkedPemasukan = Pemasukan::whereIn('hutang_piutang_id', $hpIds)
+            ->pluck('hutang_piutang_id')
+            ->toArray();
+
+        // Cari ID mana saja yang ada di tabel Pengeluaran
+        $linkedPengeluaran = Pengeluaran::whereIn('hutang_piutang_id', $hpIds)
+            ->pluck('hutang_piutang_id')
+            ->toArray();
+
+        // Tambahkan flag 'terhubung_transaksi' ke setiap item
+        $hutangPiutangs->transform(function ($item) use ($linkedPemasukan, $linkedPengeluaran) {
+            $item->terhubung_transaksi = in_array($item->id, $linkedPemasukan) || in_array($item->id, $linkedPengeluaran);
+            return $item;
+        });
+
         return Inertia::render('HutangPiutang/Index', [
-            'hutangPiutangs' => HutangPiutang::with('contact')
-                ->orderBy('status', 'asc') // Menampilkan yang belum lunas di atas
-                ->orderBy('jatuh_tempo', 'asc')
-                ->get(),
-            'contacts' => Contact::all(),
+            'hutangPiutangs' => $hutangPiutangs,
+            'contacts' => $contacts, // Untuk Filter Dropdown
+            'allContacts' => Contact::all(), // Untuk Modal Input (Semua Kontak)
             'akuns' => Akun::all(),
+            'filters' => $request->only(['jenis', 'contact_id']),
         ]);
     }
 
@@ -45,6 +84,50 @@ class HutangPiutangController extends Controller
         HutangPiutang::create($validated);
 
         return redirect()->back()->with('message', 'Data berhasil dicatat.');
+    }
+
+    /**
+     * Update data hutang/piutang
+     */
+    public function update(Request $request, HutangPiutang $hutangPiutang)
+    {
+        $validated = $request->validate([
+            'contact_id' => 'required|exists:contacts,id',
+            'nominal' => 'required|numeric|min:1',
+            'keterangan' => 'required|string|max:255',
+            'jatuh_tempo' => 'nullable|date',
+        ]);
+
+        DB::transaction(function () use ($hutangPiutang, $validated) {
+            // Cek apakah data ini terhubung dengan Pemasukan atau Pengeluaran
+            // Cari di tabel Pemasukan/Pengeluaran yang punya hutang_piutang_id ini
+            $pemasukan = Pemasukan::where('hutang_piutang_id', $hutangPiutang->id)->first();
+            $pengeluaran = Pengeluaran::where('hutang_piutang_id', $hutangPiutang->id)->first();
+
+            // Jika terhubung, contact_id tidak boleh berubah (override dengan data lama)
+            if (($pemasukan || $pengeluaran) && $hutangPiutang->contact_id != $validated['contact_id']) {
+                $validated['contact_id'] = $hutangPiutang->contact_id;
+            }
+
+            // Update HutangPiutang
+            $hutangPiutang->update($validated);
+
+            // Sinkronisasi Nominal ke Pemasukan jika ada relasi
+            if ($pemasukan) {
+                $pemasukan->update([
+                    'nominal' => $validated['nominal']
+                ]);
+            }
+
+            // Sinkronisasi Nominal ke Pengeluaran jika ada relasi
+            if ($pengeluaran) {
+                $pengeluaran->update([
+                    'nominal' => $validated['nominal']
+                ]);
+            }
+        });
+
+        return redirect()->back()->with('message', 'Data berhasil diperbarui.');
     }
 
     /**

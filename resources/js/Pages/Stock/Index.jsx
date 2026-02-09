@@ -25,6 +25,7 @@ export default function StockIndex({
     stocks,
     totalAset,
     akuns,
+    contacts,
     histories,
 }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +62,9 @@ export default function StockIndex({
     } = useForm({
         qty_keluar: 1,
         akun_id: akuns[0]?.id || "", // Default ke akun pertama
+        contact_id: "", // <--- Tambahan Baru
+        status_pembayaran: "LUNAS", // <--- Tambahan Baru (Default Lunas)
+        jatuh_tempo: "",
     });
 
     const openStockOutModal = (item) => {
@@ -566,6 +570,27 @@ export default function StockIndex({
                         {selectedStock?.satuan}
                     </p>
 
+                    {/* --- 1. PILIH CUSTOMER --- */}
+                    <div className="mb-4">
+                        <InputLabel value="Customer / Pembeli" />
+                        <select
+                            className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500"
+                            value={stockOutData.contact_id}
+                            onChange={(e) =>
+                                setStockOutData("contact_id", e.target.value)
+                            }
+                            required
+                        >
+                            <option value="">-- Pilih Customer --</option>
+                            {contacts.map((contact) => (
+                                <option key={contact.id} value={contact.id}>
+                                    {contact.nama}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* --- 2. INPUT JUMLAH KELUAR --- */}
                     <div className="mb-4">
                         <InputLabel value="Jumlah Keluar" />
                         <TextInput
@@ -576,33 +601,123 @@ export default function StockIndex({
                                 setStockOutData("qty_keluar", e.target.value)
                             }
                             max={selectedStock?.qty}
+                            required
                         />
                     </div>
 
-                    <div className="mb-6">
-                        <InputLabel value="Uang Masuk Ke" />
-                        <select
-                            className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500"
-                            value={stockOutData.akun_id}
-                            onChange={(e) =>
-                                setStockOutData("akun_id", e.target.value)
-                            }
-                        >
-                            {akuns.map((akun) => (
-                                <option key={akun.id} value={akun.id}>
-                                    {akun.nama} (Saldo: {akun.saldo})
-                                </option>
-                            ))}
-                        </select>
+                    {/* --- 3. STATUS PEMBAYARAN (LUNAS / PIUTANG) --- */}
+                    <div className="mb-4">
+                        <InputLabel value="Status Pembayaran" />
+                        <div className="flex gap-4 mt-2">
+                            <label className="flex items-center">
+                                <input
+                                    type="radio"
+                                    name="payment_status"
+                                    value="LUNAS"
+                                    checked={
+                                        stockOutData.status_pembayaran ===
+                                        "LUNAS"
+                                    }
+                                    onChange={(e) =>
+                                        setStockOutData(
+                                            "status_pembayaran",
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="text-primary-600 focus:ring-primary-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">
+                                    Lunas (Cash/Transfer)
+                                </span>
+                            </label>
+                            <label className="flex items-center">
+                                <input
+                                    type="radio"
+                                    name="payment_status"
+                                    value="PIUTANG"
+                                    checked={
+                                        stockOutData.status_pembayaran ===
+                                        "PIUTANG"
+                                    }
+                                    onChange={(e) =>
+                                        setStockOutData(
+                                            "status_pembayaran",
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="text-primary-600 focus:ring-primary-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">
+                                    Piutang (Tempo)
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div className="bg-primary-50 p-4 rounded-lg mb-6">
-                        <div className="flex justify-between text-sm text-primary-800 font-bold">
-                            <span>Total Pemasukan:</span>
+                    {/* --- 4. PILIH AKUN (Hanya Muncul Jika LUNAS) --- */}
+                    {stockOutData.status_pembayaran === "LUNAS" && (
+                        <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <InputLabel value="Uang Masuk Ke Akun" />
+                            <select
+                                className="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500"
+                                value={stockOutData.akun_id}
+                                onChange={(e) =>
+                                    setStockOutData("akun_id", e.target.value)
+                                }
+                                required={
+                                    stockOutData.status_pembayaran === "LUNAS"
+                                }
+                            >
+                                <option value="">-- Pilih Akun --</option>
+                                {akuns.map((akun) => (
+                                    <option key={akun.id} value={akun.id}>
+                                        {akun.nama} (Saldo:{" "}
+                                        {formatRupiah(akun.saldo)})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* --- 5. JATUH TEMPO (Hanya Muncul Jika PIUTANG) --- */}
+                    {stockOutData.status_pembayaran === "PIUTANG" && (
+                        <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <InputLabel
+                                htmlFor="jatuh_tempo"
+                                value="Jatuh Tempo (Opsional)"
+                            />
+                            <TextInput
+                                id="jatuh_tempo"
+                                type="date"
+                                className="mt-1 block w-full"
+                                value={stockOutData.jatuh_tempo}
+                                onChange={(e) =>
+                                    setStockOutData(
+                                        "jatuh_tempo",
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                        </div>
+                    )}
+
+                    {/* --- INFO TOTAL --- */}
+                    <div
+                        className={`p-4 rounded-lg mb-6 ${stockOutData.status_pembayaran === "LUNAS" ? "bg-primary-50 text-primary-800" : "bg-orange-50 text-orange-800"}`}
+                    >
+                        <div className="flex justify-between text-sm font-bold">
+                            <span>
+                                Total{" "}
+                                {stockOutData.status_pembayaran === "LUNAS"
+                                    ? "Pemasukan"
+                                    : "Piutang"}
+                                :
+                            </span>
                             <span>
                                 {new Intl.NumberFormat("id-ID", {
                                     style: "currency",
                                     currency: "IDR",
+                                    minimumFractionDigits: 0,
                                 }).format(
                                     stockOutData.qty_keluar *
                                         (selectedStock?.harga_jual_default ||
@@ -610,6 +725,12 @@ export default function StockIndex({
                                 )}
                             </span>
                         </div>
+                        {stockOutData.status_pembayaran === "PIUTANG" && (
+                            <p className="text-xs mt-1 font-normal opacity-80">
+                                * Akan tercatat sebagai tagihan piutang ke
+                                customer.
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-3">
@@ -619,7 +740,11 @@ export default function StockIndex({
                             Batal
                         </SecondaryButton>
                         <PrimaryButton disabled={stockOutProcessing}>
-                            Proses Keluar
+                            {stockOutProcessing
+                                ? "Memproses..."
+                                : stockOutData.status_pembayaran === "LUNAS"
+                                  ? "Proses & Catat Pemasukan"
+                                  : "Simpan sebagai Piutang"}
                         </PrimaryButton>
                     </div>
                 </form>
