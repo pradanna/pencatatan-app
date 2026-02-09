@@ -97,6 +97,7 @@ class HutangPiutangController extends Controller
                     'nominal' => $hutangPiutang->nominal,
                     'tanggal' => $request->tanggal_bayar,
                     'keterangan' => "Pelunasan Hutang: " . $hutangPiutang->keterangan,
+                    'status' => 'LUNAS',
                     // Tambahkan kolom lain jika diperlukan sesuai migration pengeluaranmu
                 ]);
 
