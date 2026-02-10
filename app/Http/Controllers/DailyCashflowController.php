@@ -19,19 +19,19 @@ class DailyCashflowController extends Controller
         $endDate = $request->get('endDate', $today);
 
         // 1. Ambil semua tanggal unik yang memiliki transaksi
-        $allDates = DB::table('pemasukans')->select('tanggal')->whereBetween('tanggal', [$startDate, $endDate])
-            ->union(DB::table('pengeluarans')->select('tanggal')->whereBetween('tanggal', [$startDate, $endDate]))
-            ->union(DB::table('hutang_piutangs')->select('tanggal')->whereBetween('tanggal', [$startDate, $endDate]))
+        // Gunakan Model agar nama tabel otomatis menyesuaikan (safe)
+        $q1 = Pemasukan::select('tanggal')->whereBetween('tanggal', [$startDate, $endDate]);
+        $q2 = Pengeluaran::select('tanggal')->whereBetween('tanggal', [$startDate, $endDate]);
+        $q3 = HutangPiutang::select('tanggal')->whereBetween('tanggal', [$startDate, $endDate]);
+
+        $allDates = $q1->union($q2)->union($q3)
             ->orderBy('tanggal', 'asc')
             ->pluck('tanggal')
             ->unique();
 
         // 2. Hitung Saldo Awal (Pemasukan Lunas - Pengeluaran Lunas sebelum startDate)
         $pemasukanLalu = Pemasukan::where('tanggal', '<', $startDate)->where('status', 'LUNAS')->sum('nominal');
-        $pengeluaranLalu = Pengeluaran::where('tanggal', '<', $startDate)
-            ->where(function ($q) {
-                $q->whereNull('hutang_piutang_id'); // Atau logika lunas kamu lainnya
-            })->sum('nominal');
+        $pengeluaranLalu = Pengeluaran::where('tanggal', '<', $startDate)->where('status', 'LUNAS')->sum('nominal');
 
         $runningBalance = $pemasukanLalu - $pengeluaranLalu;
         $initialBalance = $runningBalance;
@@ -40,7 +40,7 @@ class DailyCashflowController extends Controller
 
         foreach ($allDates as $date) {
             $masuk = Pemasukan::where('tanggal', $date)->where('status', 'LUNAS')->sum('nominal');
-            $keluar = Pengeluaran::where('tanggal', $date)->whereNull('hutang_piutang_id')->sum('nominal');
+            $keluar = Pengeluaran::where('tanggal', $date)->where('status', 'LUNAS')->sum('nominal');
 
             // Logika Hutang & Piutang dari tabel hutang_piutangs
             $piutangBaru = HutangPiutang::where('tanggal', $date)->where('jenis', 'PIUTANG')->sum('nominal');

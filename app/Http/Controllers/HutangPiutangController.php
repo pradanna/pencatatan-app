@@ -81,7 +81,8 @@ class HutangPiutangController extends Controller
             'jatuh_tempo' => 'nullable|date',
         ]);
 
-        HutangPiutang::create($validated);
+        // Tambahkan tanggal hari ini agar muncul di laporan
+        HutangPiutang::create($validated + ['tanggal' => now()->toDateString()]);
 
         return redirect()->back()->with('message', 'Data berhasil dicatat.');
     }
