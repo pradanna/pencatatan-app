@@ -31,7 +31,7 @@ class DailyCashflowController extends Controller
 
         // 2. Hitung Saldo Awal (Pemasukan Lunas - Pengeluaran Lunas sebelum startDate)
         $pemasukanLalu = Pemasukan::where('tanggal', '<', $startDate)->where('status', 'LUNAS')->sum('nominal');
-        $pengeluaranLalu = Pengeluaran::where('tanggal', '<', $startDate)->where('status', 'LUNAS')->sum('nominal');
+        $pengeluaranLalu = Pengeluaran::where('tanggal', '<', $startDate)->whereNull('hutang_piutang_id')->sum('nominal');
 
         $runningBalance = $pemasukanLalu - $pengeluaranLalu;
         $initialBalance = $runningBalance;
@@ -40,7 +40,7 @@ class DailyCashflowController extends Controller
 
         foreach ($allDates as $date) {
             $masuk = Pemasukan::where('tanggal', $date)->where('status', 'LUNAS')->sum('nominal');
-            $keluar = Pengeluaran::where('tanggal', $date)->where('status', 'LUNAS')->sum('nominal');
+            $keluar = Pengeluaran::where('tanggal', $date)->whereNull('hutang_piutang_id')->sum('nominal');
 
             // Logika Hutang & Piutang dari tabel hutang_piutangs
             $piutangBaru = HutangPiutang::where('tanggal', $date)->where('jenis', 'PIUTANG')->sum('nominal');
