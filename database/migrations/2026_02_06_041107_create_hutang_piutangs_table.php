@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('contact_id')->constrained()->cascadeOnDelete();
 
             $table->enum('jenis', ['HUTANG', 'PIUTANG']);
-            $table->enum('status', ['ESTIMASI', 'TAGIHAN_OPEN', 'LUNAS'])->default('ESTIMASI');
+            $table->enum('status', ['ESTIMASI', 'TAGIHAN_OPEN', 'LUNAS'])->default('TAGIHAN_OPEN');
 
             $table->decimal('nominal', 15, 2);
             $table->text('keterangan')->nullable();

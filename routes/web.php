@@ -14,7 +14,6 @@ use App\Http\Controllers\HutangPiutangController;
 use App\Http\Controllers\LaporanHutangPiutangController;
 use App\Http\Controllers\LaporanPemasukanController;
 use App\Http\Controllers\LaporanPengeluaranController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;

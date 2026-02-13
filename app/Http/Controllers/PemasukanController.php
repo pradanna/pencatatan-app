@@ -21,6 +21,8 @@ class PemasukanController extends Controller
         $startDate = $request->get('startDate', $today);
         $endDate = $request->get('endDate', $today);
         $status = $request->get('status');
+        $contact_id = $request->get('contact_id');
+        $akun_id = $request->get('akun_id');
 
         // 1. Inisialisasi Query
         $query = Pemasukan::with(['akun', 'contact', 'category', 'pengeluaranProject']);
@@ -31,6 +33,14 @@ class PemasukanController extends Controller
         // 3. Terapkan Filter Status jika ada
         if ($status) {
             $query->where('status', $status);
+        }
+
+        if ($contact_id) {
+            $query->where('contact_id', $contact_id);
+        }
+
+        if ($akun_id) {
+            $query->where('akun_id', $akun_id);
         }
 
         // 4. EKSEKUSI QUERY (Gunakan variabel $query, jangan panggil Pemasukan:: lagi)
@@ -53,6 +63,8 @@ class PemasukanController extends Controller
                 'startDate' => $startDate,
                 'endDate' => $endDate,
                 'status' => $status,
+                'contact_id' => $contact_id,
+                'akun_id' => $akun_id,
             ],
             'categories_in' => $categories_in,
             'categories_out' => $categories_out,

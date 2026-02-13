@@ -41,7 +41,7 @@ export default function LaporanPemasukan({
         }).format(num);
 
     const dataChart = {
-        labels: chartData.map((d) => d.name),
+        labels: chartData.map((d) => d.nama),
         datasets: [
             {
                 data: chartData.map((d) => d.total),

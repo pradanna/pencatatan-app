@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, useForm } from "@inertiajs/react";
@@ -47,6 +47,8 @@ export default function PemasukanIndex({
         startDate: filters.startDate || "",
         endDate: filters.endDate || "",
         status: filters.status || "", // Ini biasanya yang menyebabkan error karena null dari database
+        contact_id: filters.contact_id || "",
+        akun_id: filters.akun_id || "",
     });
 
     // Fungsi untuk menjalankan filter
@@ -60,9 +62,15 @@ export default function PemasukanIndex({
         });
     };
 
+    const isMounted = useRef(false);
+
     useEffect(() => {
-        if (filterData.status !== filters.status) handleFilter();
-    }, [filterData.status]);
+        if (isMounted.current) {
+            handleFilter();
+        } else {
+            isMounted.current = true;
+        }
+    }, [filterData]);
 
     // Form Pemasukan
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -191,7 +199,7 @@ export default function PemasukanIndex({
                     </PrimaryButton>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-wrap items-end gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-wrap gap-4 items-end">
                     {/* Input Tanggal Awal */}
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
@@ -228,13 +236,61 @@ export default function PemasukanIndex({
                         />
                     </div>
 
+                    {/* Filter Customer */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            Customer
+                        </label>
+                        <select
+                            className="w-full border-gray-200 rounded-lg text-sm"
+                            value={filterData.contact_id}
+                            onChange={(e) =>
+                                setFilterData({
+                                    ...filterData,
+                                    contact_id: e.target.value,
+                                })
+                            }
+                        >
+                            <option value="">Semua Customer</option>
+                            {contacts_in.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.nama}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Filter Akun */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            Akun Masuk
+                        </label>
+                        <select
+                            className="w-full border-gray-200 rounded-lg text-sm"
+                            value={filterData.akun_id}
+                            onChange={(e) =>
+                                setFilterData({
+                                    ...filterData,
+                                    akun_id: e.target.value,
+                                })
+                            }
+                        >
+                            <option value="">Semua Akun</option>
+                            {akuns.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                    {a.nama}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Filter Status */}
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
                             Status
                         </label>
                         <select
-                            className="border-gray-200 rounded-lg text-sm"
+                            className="w-full border-gray-200 rounded-lg text-sm"
                             value={filterData.status}
                             onChange={(e) =>
                                 setFilterData({
@@ -251,21 +307,13 @@ export default function PemasukanIndex({
 
                     <div className="flex gap-2">
                         <button
-                            onClick={handleFilter}
-                            className="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm shadow-primary-200"
-                        >
-                            Cari
-                        </button>
-                        <button
                             onClick={() => {
                                 setFilterData({
                                     startDate: today,
                                     endDate: today,
                                     status: "",
-                                });
-                                router.get(route("pemasukans.index"), {
-                                    startDate: today,
-                                    endDate: today,
+                                    contact_id: "",
+                                    akun_id: "",
                                 });
                             }}
                             className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200"
@@ -402,7 +450,15 @@ export default function PemasukanIndex({
                                                 </button>
                                                 <button
                                                     onClick={() =>
-                                                        deleteData(item.id)
+                                                        confirm(
+                                                            "Hapus data ini? Saldo akun akan dikembalikan.",
+                                                        ) &&
+                                                        router.delete(
+                                                            route(
+                                                                "pemasukans.destroy",
+                                                                item.id,
+                                                            ),
+                                                        )
                                                     }
                                                     className="p-1.5 text-gray-400 hover:text-red-500"
                                                 >

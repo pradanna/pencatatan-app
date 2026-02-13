@@ -209,7 +209,7 @@ export default function HutangPiutangIndex({
                                 Kontak / Customer
                             </th>
                             <th className="px-6 py-4 text-left">Keterangan</th>
-                            <th className="px-6 py-4 text-left">Jatuh Tempo</th>
+                            <th className="px-6 py-4 text-left">Tanggal</th>
                             <th className="px-6 py-4 text-left">Status</th>
                             <th className="px-6 py-4 text-left">Nominal</th>
                             <th className="px-6 py-4 text-right">Aksi</th>
@@ -239,7 +239,7 @@ export default function HutangPiutangIndex({
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-1.5 text-gray-500">
                                         <Calendar size={14} />
-                                        {item.jatuh_tempo || "-"}
+                                        {item.tanggal || "-"}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">

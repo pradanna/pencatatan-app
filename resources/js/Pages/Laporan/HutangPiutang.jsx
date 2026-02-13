@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
-import { Eye, FileSpreadsheet, Printer, X } from "lucide-react";
+import { Eye, FileSpreadsheet, Printer, X, ArrowUpDown } from "lucide-react";
 
 export default function LaporanHutangPiutang({
     auth,
@@ -17,6 +17,36 @@ export default function LaporanHutangPiutang({
         jenis: "",
     });
     const [loading, setLoading] = useState(false);
+    const [sortConfig, setSortConfig] = useState({
+        key: null,
+        direction: "asc",
+    });
+
+    const handleSort = (key) => {
+        let direction = "asc";
+        if (sortConfig.key === key && sortConfig.direction === "asc") {
+            direction = "desc";
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortedData = (data) => {
+        if (!sortConfig.key) return data;
+        return [...data].sort((a, b) => {
+            let valA =
+                sortConfig.key === "nama"
+                    ? (a.contact?.nama || "").toLowerCase()
+                    : Number(a.total_hutang);
+            let valB =
+                sortConfig.key === "nama"
+                    ? (b.contact?.nama || "").toLowerCase()
+                    : Number(b.total_hutang);
+
+            if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+            return 0;
+        });
+    };
 
     const formatRupiah = (number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -52,6 +82,9 @@ export default function LaporanHutangPiutang({
         }
     };
 
+    const sortedPiutang = getSortedData(rekapPiutang);
+    const sortedHutang = getSortedData(rekapHutang);
+
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -82,11 +115,43 @@ export default function LaporanHutangPiutang({
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-400 uppercase bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-3">
-                                                    Nama Customer
+                                                <th
+                                                    className="px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors group"
+                                                    onClick={() =>
+                                                        handleSort("nama")
+                                                    }
+                                                >
+                                                    <div className="flex items-center gap-1">
+                                                        Nama Customer
+                                                        <ArrowUpDown
+                                                            size={12}
+                                                            className={
+                                                                sortConfig.key ===
+                                                                "nama"
+                                                                    ? "text-blue-600"
+                                                                    : "text-gray-300 opacity-0 group-hover:opacity-100"
+                                                            }
+                                                        />
+                                                    </div>
                                                 </th>
-                                                <th className="px-4 py-3 text-right">
-                                                    Total Nominal
+                                                <th
+                                                    className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 transition-colors group"
+                                                    onClick={() =>
+                                                        handleSort("nominal")
+                                                    }
+                                                >
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        Total Nominal
+                                                        <ArrowUpDown
+                                                            size={12}
+                                                            className={
+                                                                sortConfig.key ===
+                                                                "nominal"
+                                                                    ? "text-blue-600"
+                                                                    : "text-gray-300 opacity-0 group-hover:opacity-100"
+                                                            }
+                                                        />
+                                                    </div>
                                                 </th>
                                                 <th className="px-4 py-3 text-center">
                                                     Aksi
@@ -94,8 +159,8 @@ export default function LaporanHutangPiutang({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {rekapPiutang.length > 0 ? (
-                                                rekapPiutang.map(
+                                            {sortedPiutang.length > 0 ? (
+                                                sortedPiutang.map(
                                                     (item, index) => (
                                                         <tr
                                                             key={index}
@@ -164,11 +229,43 @@ export default function LaporanHutangPiutang({
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-400 uppercase bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-3">
-                                                    Nama Supplier
+                                                <th
+                                                    className="px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors group"
+                                                    onClick={() =>
+                                                        handleSort("nama")
+                                                    }
+                                                >
+                                                    <div className="flex items-center gap-1">
+                                                        Nama Supplier
+                                                        <ArrowUpDown
+                                                            size={12}
+                                                            className={
+                                                                sortConfig.key ===
+                                                                "nama"
+                                                                    ? "text-orange-600"
+                                                                    : "text-gray-300 opacity-0 group-hover:opacity-100"
+                                                            }
+                                                        />
+                                                    </div>
                                                 </th>
-                                                <th className="px-4 py-3 text-right">
-                                                    Total Nominal
+                                                <th
+                                                    className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 transition-colors group"
+                                                    onClick={() =>
+                                                        handleSort("nominal")
+                                                    }
+                                                >
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        Total Nominal
+                                                        <ArrowUpDown
+                                                            size={12}
+                                                            className={
+                                                                sortConfig.key ===
+                                                                "nominal"
+                                                                    ? "text-orange-600"
+                                                                    : "text-gray-300 opacity-0 group-hover:opacity-100"
+                                                            }
+                                                        />
+                                                    </div>
                                                 </th>
                                                 <th className="px-4 py-3 text-center">
                                                     Aksi
@@ -176,8 +273,8 @@ export default function LaporanHutangPiutang({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {rekapHutang.length > 0 ? (
-                                                rekapHutang.map(
+                                            {sortedHutang.length > 0 ? (
+                                                sortedHutang.map(
                                                     (item, index) => (
                                                         <tr
                                                             key={index}

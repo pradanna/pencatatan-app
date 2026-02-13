@@ -35,7 +35,7 @@ class HutangPiutangController extends Controller
 
         // Eksekusi query
         $hutangPiutangs = $query->orderBy('status', 'asc')
-            ->orderBy('jatuh_tempo', 'asc')
+            ->orderBy('tanggal', 'desc')
             ->get();
 
         // Cek manual relasi ke tabel Pemasukan dan Pengeluaran
@@ -167,7 +167,6 @@ class HutangPiutangController extends Controller
                     'nominal' => $hutangPiutang->nominal,
                     'tanggal' => $request->tanggal_bayar,
                     'keterangan' => "Pelunasan Piutang: " . $hutangPiutang->keterangan,
-                    'status' => 'LUNAS',
                 ]);
 
                 // 2. Tambah Saldo Akun
@@ -177,11 +176,10 @@ class HutangPiutangController extends Controller
                 Pengeluaran::create([
                     'akun_id' => $request->akun_id,
                     'contact_id' => $hutangPiutang->contact_id,
-                    'hutang_piutang_id' => $hutangPiutang->id,
+                    'hutang_piutang_id' => null,
                     'nominal' => $hutangPiutang->nominal,
                     'tanggal' => $request->tanggal_bayar,
                     'keterangan' => "Pelunasan Hutang: " . $hutangPiutang->keterangan,
-                    'status' => 'LUNAS',
                     // Tambahkan kolom lain jika diperlukan sesuai migration pengeluaranmu
                 ]);
 

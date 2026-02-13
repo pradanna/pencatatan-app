@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, useForm } from "@inertiajs/react";
 import Modal from "@/Components/Modal";
@@ -40,14 +40,26 @@ export default function PengeluaranIndex({
         from_date: filters.from_date || "",
         to_date: filters.to_date || "",
         status: filters.status || "",
+        contact_id: filters.contact_id || "",
+        akun_id: filters.akun_id || "",
     });
 
     const handleFilter = () => {
         router.get(route("pengeluarans.index"), filterData, {
             preserveState: true,
             replace: true,
+            preserveScroll: true,
         });
     };
+
+    const isMounted = useRef(false);
+    useEffect(() => {
+        if (isMounted.current) {
+            handleFilter();
+        } else {
+            isMounted.current = true;
+        }
+    }, [filterData]);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         akun_id: akuns[0]?.id || "",
@@ -159,6 +171,55 @@ export default function PengeluaranIndex({
                             }
                         />
                     </div>
+
+                    {/* Filter Supplier */}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700">
+                            Supplier
+                        </label>
+                        <select
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                            value={filterData.contact_id}
+                            onChange={(e) =>
+                                setFilterData({
+                                    ...filterData,
+                                    contact_id: e.target.value,
+                                })
+                            }
+                        >
+                            <option value="">Semua Supplier</option>
+                            {suppliers.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.nama}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Filter Akun */}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700">
+                            Akun
+                        </label>
+                        <select
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                            value={filterData.akun_id}
+                            onChange={(e) =>
+                                setFilterData({
+                                    ...filterData,
+                                    akun_id: e.target.value,
+                                })
+                            }
+                        >
+                            <option value="">Semua Akun</option>
+                            {akuns.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                    {a.nama}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-medium text-gray-700">
                             Status
@@ -179,12 +240,6 @@ export default function PengeluaranIndex({
                         </select>
                     </div>
                     <button
-                        onClick={handleFilter}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition"
-                    >
-                        Filter
-                    </button>
-                    <button
                         onClick={() => {
                             const today = new Date()
                                 .toISOString()
@@ -193,8 +248,9 @@ export default function PengeluaranIndex({
                                 from_date: today,
                                 to_date: today,
                                 status: "",
+                                contact_id: "",
+                                akun_id: "",
                             });
-                            router.get(route("pengeluarans.index"));
                         }}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300 transition"
                     >
@@ -306,12 +362,11 @@ export default function PengeluaranIndex({
                                                     confirm(
                                                         "Hapus data ini? Saldo akun akan dikembalikan.",
                                                     ) &&
-                                                    post(
+                                                    router.delete(
                                                         route(
                                                             "pengeluarans.destroy",
                                                             item.id,
                                                         ),
-                                                        { _method: "DELETE" },
                                                     )
                                                 }
                                                 className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"

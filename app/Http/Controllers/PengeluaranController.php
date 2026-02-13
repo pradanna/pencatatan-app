@@ -53,7 +53,6 @@ class PengeluaranController extends Controller
     {
 
 
-
         $validated = $request->validate([
             'status' => 'required|in:LUNAS,HUTANG',
             'akun_id' => 'required|exists:akuns,id',
@@ -77,6 +76,7 @@ class PengeluaranController extends Controller
                     'status'     => 'TAGIHAN_OPEN',
                     'nominal'    => $validated['nominal'],
                     'keterangan' =>  $validated['keterangan'],
+                    'tanggal' =>  $validated['tanggal'],
                     'jatuh_tempo' => now()->addDays(7),
                 ]);
                 $hutangId = $hutang->id;
